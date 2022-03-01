@@ -1,0 +1,6 @@
+**/BPVI-buffers.fpga.prj
+**/build
+**/bin
+profile.mon
+profile.json
+cameraman_golden*
