@@ -1,0 +1,52 @@
+CXX := dpcpp
+CXXFLAGS = -Iinc -O2 -g -std=c++17 
+linkFLAGS = -L/home/u79811/ONEAPI/con2D_ONEAPI/convolution/lib -lfreeimage
+SRC := src/main.cpp
+
+INC := inc/*.h
+
+LIBS := freeimage
+
+.PHONY: fpga_emu run_emu clean 
+
+fpga_emu: conv2D.fpga_emu
+
+
+hw: conv2D.fpga
+
+
+report: conv2D_report.a
+
+
+conv2D.fpga_emu: $(SRC)
+	$(CXX) $(CXXFLAGS) -fintelfpga $^ -o $@ -DFPGA_EMULATOR=1 $(linkFLAGS)
+
+
+
+a.o: $(SRC)
+	$(CXX) $(CXXFLAGS) -fintelfpga -c $^ -o $@ -DFPGA=1
+
+
+conv2D.fpga: a.o
+	$(CXX) $(CXXFLAGS) -fintelfpga $^ -o $@ -Xshardware -Xsprofile $(linkFLAGS)
+
+
+run_emu: conv2D.fpga_emu
+	./conv2D.fpga_emu
+
+
+
+run_hw: conv2D.fpga
+	./conv2D.fpga
+
+
+dev.o: $(SRC)
+	$(CXX) $(CXXFLAGS) -fintelfpga -c $^ -o $@ -DFPGA=1
+
+
+conv2D_report.a: dev.o
+	$(CXX) $(CXXFLAGS) -fintelfpga -fsycl-link $^ -o $@ -Xshardware
+
+
+clean:
+	rm -rf *.o *.d *.out *.mon *.emu *.aocr *.aoco *.prj *.fpga_emu *.fpga_emu_buffers conv2D.fpga *.a

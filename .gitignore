@@ -1,6 +1,8 @@
 **/BPVI-buffers.fpga.prj
+**/conv2D.fpga.prj
 **/build
 **/bin
 profile.mon
 profile.json
 cameraman_golden*
+conv2D.fpga
