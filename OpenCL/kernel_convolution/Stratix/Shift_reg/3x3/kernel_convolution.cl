@@ -11,33 +11,61 @@ __kernel void convolution_2D(__global const float * restrict input,
 
 const size_t radius = mask_width /2;
 
-float input_local[input_width * mask_width];
-		
-		
-float output_local[input_width];
 
+float //__attribute__((numbanks(1)))
+ 	     //__attribute__((doublepump))
+    	      //__attribute__((numwriteports(2)))
+ 	      //__attribute__((numreadports(226))) 
+ 	      __attribute__((singlepump))
+ 	      input_local[input_width * mask_width];
+ 	      
+
+
+float mask_local[mask_width * mask_width];
+ 	      
+ 	      
+float __attribute__((singlepump)) output_local[input_width];
+
+	size_t cpt = mask_width - radius;
 	size_t n = 0;
-	//#pragma unroll 16
-	for(unsigned int p = 0; p < input_width * (mask_width - 1); p++){
-		if(p < radius * input_width){
-			input_local[p] = 0.0f;
-		}else{
-			input_local[p] = input[n];
-			++n;
-		}
+	
+
+for(size_t l=0; l < mask_width; ++l){
+	#pragma unroll 
+	for(size_t m=0; m < mask_width; ++m){
+		mask_local[l * mask_width + m] = mask[l * mask_width + m];
 	}
+}
+
+
+for(unsigned int q = 0; q < (mask_width - radius); q++){
+	#pragma unroll 8
+	for(unsigned int p = 0; p < input_width; p++){
+		input_local[q*input_width + p] = input[q*input_width + p];
+	}
+}
+
+	
 #pragma max_concurrency 8
 for(unsigned int y = 0; y < input_height; ++y) {
 
 	size_t y_prime;
-        y_prime = y + radius;
+	
+	if(y < radius || y >= (input_height  - radius))
+        	y_prime = y;
+	else
+        	y_prime = y + radius;
         
-        //if(y < radius)
-        //	y_prime = 0;
+        
 	
 	#pragma unroll 16
 	for(unsigned int p = 0; p < input_width; p++){
-		input_local[((mask_width - 1) * input_width) + p] = input[y_prime * input_width + p];
+		
+		input_local[(cpt * input_width) + p] = input[y_prime * input_width + p];
+	}
+	cpt++;
+	if(cpt == mask_width){
+		cpt = 0;
 	}
 	
 	#pragma unroll 64
@@ -58,12 +86,12 @@ for(unsigned int y = 0; y < input_height; ++y) {
 			float image_value = 0.0f;
 			if (x + mx >= radius
 				&& x + mx - radius < input_width
-				&& y + my >= radius
+				&& y + my > radius
 				&& y + my - radius < input_height)
 			    //image_value = input[(y + my - radius) * input_width + (x + mx - radius)];
 			    image_value = input_local[my * input_width + (x + mx - radius)];
 		
-			result += mask[mask_index] * image_value;
+			result += mask_local[mask_index] * image_value;
 		    }
 		}
 		    
@@ -72,17 +100,18 @@ for(unsigned int y = 0; y < input_height; ++y) {
 		    
 	}
 	
+	
 	#pragma unroll 64
 	for(unsigned int p = 0; p < input_width; p++){
 		output[y * input_width + p] = output_local[p];
 	}
 	
+	/*
 	#pragma unroll 8
 	for(unsigned int p = 0; p < input_width * (mask_width - 1); p++){
 		input_local[p] = input_local[p + input_width];
 	}
-
+	*/
 }
-        
         
 }

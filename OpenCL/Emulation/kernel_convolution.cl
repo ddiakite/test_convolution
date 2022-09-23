@@ -1,6 +1,6 @@
 #define input_height 512
 #define input_width 512
-#define mask_width 5
+#define mask_width 15
 
 __kernel void convolution_2D(__global const float * restrict input,
 				 __global float * restrict output,

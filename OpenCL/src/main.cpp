@@ -4,7 +4,7 @@
 #include <chrono>
 #include <iostream>
 #include <map>
-#include <string>
+#include <cstring>
 #include <tuple>
 #include <fstream>
 
@@ -14,6 +14,7 @@
 
 #include "convolution.h"
 #include "utils.h"
+#include "clean.h"
 
 
 using namespace conv;
@@ -43,7 +44,7 @@ int main(int argc, char *argv[])
 	
 	mixed_precision_tuple image_float;
 	
-	mask_width = 9;
+	mask_width = 15;
     	mask_size = mask_width * mask_width;
     	//mask_width = sqrt(mask_size);
     	const size_t radius {mask_width /2};
@@ -82,7 +83,7 @@ int main(int argc, char *argv[])
 	
 	end_time = high_resolution_clock::now();
 	
-	float *image_golden_float = opencl_convolution_naive(std::get<single_float>(image_float), width, height, std::get<single_float>(mask), mask_width, useless, loop_count);
+	float *image_golden_float = cpu_convolution_naive(std::get<single_float>(image_float), width, height, std::get<single_float>(mask), mask_width, useless, loop_count);
 	
 	//printf("\n Convolution time: %0.3f ms\n", (end_time - start_time) * 1e3);
 	milliseconds total_ms = std::chrono::duration_cast<milliseconds>(end_time - start_time);
@@ -97,8 +98,8 @@ int main(int argc, char *argv[])
 
 	//for(unsigned j = 0; j < (width * (height)) && pass; ++j) {
         for(unsigned j = (radius)*width; j < (width * (height-radius)) && pass; ++j) {
-                if(fabsf(image_ref[j] - image_golden_float[j]) > 1.0e-6f) {
-                        printf("Failed verification @ index %d\nOutput: %f\nReference: %f\n",
+                if(fabsf(image_ref[j] - image_golden_float[j]) > 1.0e-9f) {
+                        printf("Failed verification @ index %d\nOutput: %.9f\nReference: %.9f\n",
                         j, image_golden_float[j], image_ref[j]);
                        
                         pass = false;
@@ -113,6 +114,70 @@ int main(int argc, char *argv[])
         delete[] image_ref;
 	
 	delete[] std::get<single_float>(image_float); 
+
+
+
+	// Running CLEAN Deconvolution
+
+	float *dirty = new float[1280*1280];
+	float *psf = new float[2560*2560];
+
+	float *clean = new float[1280*1280];
+	float *residuals = new float[1280*1280];
+
+	float gamma = 0.1;
+	float threshold = 0.204045191393;
+	int niter = 1280;
+
+	std::string dirty_path = "../images/dirty.dat";
+	std::string psf_path = "../images/psf.dat";
+
+	FILE* mydirtyfile;
+	
+	mydirtyfile = fopen(dirty_path.c_str(), "rb");
+	
+	if(mydirtyfile){
+		std::cout << " dirty File opening ok \n ";
+	}
+	else{
+		std::cout << "dirty File opening failed\n ";
+	}
+	
+	fread((dirty), sizeof(float), 1280*1280, mydirtyfile);
+	fclose (mydirtyfile);
+
+	FILE* mypsffile;
+	
+	mypsffile = fopen(psf_path.c_str(), "rb");
+	
+	if(mypsffile){
+		std::cout << " dirty File opening ok \n ";
+	}
+	else{
+		std::cout << "dirty File opening failed\n ";
+	}
+	
+	fread((psf), sizeof(float), 2560*2560, mypsffile);
+	fclose (mypsffile);
+
+	//std::cout << psf[1280+1280*2560] << "\n ";
+	// for (size_t j = 0; j < 20; j++){
+
+	// 	//printf("%f\t", dirty[j]);
+	// 	std::cout << dirty[j] << "\n ";
+	// }
+
+	memcpy(residuals,dirty,1280*1280*sizeof(float));
+	
+	//hogbom_clean(dirty, psf, clean, residuals, gamma, threshold, niter);
+	deconvolution_clean(dirty, psf, clean, residuals, gamma, threshold, niter);
+	
+
+
+	delete[] dirty;
+	delete[] psf;
+	delete[] clean;
+	delete[] residuals;
 	
 	return 0;
 }

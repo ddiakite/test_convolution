@@ -1,6 +1,6 @@
 #define input_height 512
 #define input_width 512
-#define mask_width 9
+#define mask_width 5
 
 __kernel void convolution_2D(__global const float * restrict input,
 				 __global float * restrict output,
@@ -11,7 +11,7 @@ __kernel void convolution_2D(__global const float * restrict input,
 
 const size_t radius = mask_width /2;
 
-float input_local[input_width * mask_width];
+float input_local[input_width * (mask_width + radius)];
 		
 		
 float output_local[input_width];
@@ -37,8 +37,8 @@ for(unsigned int y = 0; y < input_height; ++y) {
         //if(y < radius)
         //	y_prime = 0;
 	
-	if(cpt == mask_width){
-		cpt = 0;
+	if(cpt == (mask_width + radius)){
+		cpt = radius;
 	}
 	
 	#pragma unroll 16
@@ -59,6 +59,16 @@ for(unsigned int y = 0; y < input_height; ++y) {
 	#pragma unroll 4
 	for(unsigned int x = 0; x < input_width; ++x) {
 		float result = 0.0f;
+		size_t adr = 0;
+		
+		if(y<radius)
+			adr = y;
+		else
+			adr = radius;
+		
+		//if((cpt > mask_width) && (y <= radius))
+		//	adr = cpt - mask_width;
+		
 
 		#pragma unroll
 		for(unsigned int my = 0; my < mask_width; ++my) {
@@ -66,13 +76,14 @@ for(unsigned int y = 0; y < input_height; ++y) {
 		    for(unsigned int mx = 0; mx < mask_width; ++mx) {
 			unsigned int mask_index = my * mask_width + mx;
 			float image_value = 0.0f;
-			if ((x + mx >= radius && x + mx - radius < input_width && my >= radius && y + my - radius < input_height))
+			if ((x + mx >= radius && x + mx - radius < input_width ))
 			//if ((x + mx >= radius && x + mx - radius < input_width && y + my >= radius && y + my - radius < input_height))
 			    //image_value = input[(y + my - radius) * input_width + (x + mx - radius)];
-			    image_value = input_local[my * input_width + (x + mx - radius)];
+			    image_value = input_local[adr * input_width + (x + mx - radius)];
 		
 			result += mask[mask_index] * image_value;
 		    }
+		    adr++;
 		}
 		    
 		    //output[y * input_width + x] = result;
