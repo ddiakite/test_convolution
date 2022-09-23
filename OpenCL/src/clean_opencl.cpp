@@ -67,6 +67,23 @@ void deconvolution_clean(float *dirty, float *psf, float *clean, float *residual
 
     printf("Clean Deconvolution on OpenCL FPGA\n");
 
+    void * host_dirty = NULL;
+    posix_memalign ((void **)&host_dirty, AOCL_ALIGNMENT, Height * Width * sizeof(float));
+
+    void * host_psf = NULL;
+    posix_memalign ((void **)&host_psf, AOCL_ALIGNMENT, psfHeight * psfWidth * sizeof(float));
+
+    void * host_clean = NULL;
+    posix_memalign ((void **)&host_clean, AOCL_ALIGNMENT, Height * Width * sizeof(float));
+
+    void * host_residuals = NULL;
+    posix_memalign ((void **)&host_residuals, AOCL_ALIGNMENT, Height * Width * sizeof(float));
+
+    memcpy(host_dirty, dirty, Height * Width * sizeof(float));
+    memcpy(host_psf, psf, psfHeight * psfWidth * sizeof(float));
+    memcpy(host_residuals, residuals, Height * Width * sizeof(float));
+
+
     ret = clGetPlatformIDs(0, NULL, &ret_num_platforms);
     platform = (cl_platform_id *) malloc(sizeof(cl_platform_id)*ret_num_platforms);
 
@@ -107,13 +124,13 @@ void deconvolution_clean(float *dirty, float *psf, float *clean, float *residual
 
 
     // Copy the image data to the memory buffer
-    ret = clEnqueueWriteBuffer(queue, dirty_d, CL_TRUE, 0, Height * Width * sizeof(float), dirty, 0, NULL, NULL); 
+    ret = clEnqueueWriteBuffer(queue, dirty_d, CL_TRUE, 0, Height * Width * sizeof(float), host_dirty, 0, NULL, NULL); 
     CHECK_RET(ret, "Error when copying the image data from the CPU to the FPGA OpenCL buffer");
     
-    ret = clEnqueueWriteBuffer(queue, psf_d, CL_TRUE, 0, psfHeight * psfWidth * sizeof(float), psf, 0, NULL, NULL); 
+    ret = clEnqueueWriteBuffer(queue, psf_d, CL_TRUE, 0, psfHeight * psfWidth * sizeof(float), host_psf, 0, NULL, NULL); 
     CHECK_RET(ret, "Error when copying the mask data from the CPU to the FPGA OpenCL buffer");
 
-    ret = clEnqueueWriteBuffer(queue, residuals_d, CL_TRUE, 0, Height * Width * sizeof(float), residuals, 0, NULL, NULL); 
+    ret = clEnqueueWriteBuffer(queue, residuals_d, CL_TRUE, 0, Height * Width * sizeof(float), host_residuals, 0, NULL, NULL); 
     CHECK_RET(ret, "Error when copying the mask data from the CPU to the FPGA OpenCL buffer");
 
 
@@ -186,9 +203,9 @@ void deconvolution_clean(float *dirty, float *psf, float *clean, float *residual
     size_t loop_count = 1;
     for(size_t n = 0; n < loop_count; n++){
 
-        ret = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, globalWorkItemSize, workGroupSize, 1, &event, &kernel_event);
+        //ret = clEnqueueNDRangeKernel(queue, kernel, 2, NULL, globalWorkItemSize, workGroupSize, 1, &event, &kernel_event);
 
-        //ret = clEnqueueTask(queue, kernel, 1, &event, &kernel_event);
+        ret = clEnqueueTask(queue, kernel, 1, &event, &kernel_event);
 
         clSetUserEventStatus(event, CL_COMPLETE);
         clWaitForEvents(1, &kernel_event);
@@ -202,13 +219,13 @@ void deconvolution_clean(float *dirty, float *psf, float *clean, float *residual
         average_time += elapsed;
     }
 
-    average_time = average_time / (loop_count + 1);
+    average_time = average_time / (loop_count);
 
     ///Read the memory buffer of the new image on the device to the new Data local variable
-    //ret = clEnqueueReadBuffer(queue, clean_d, CL_TRUE, 0, Height * Width * sizeof(float), clean, 0, NULL, NULL);
-    //ret = clEnqueueReadBuffer(queue, residuals_d, CL_TRUE, 0, Height * Width * sizeof(float), residuals, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(queue, clean_d, CL_TRUE, 0, Height * Width * sizeof(float), host_clean, 0, NULL, NULL);
+    ret = clEnqueueReadBuffer(queue, residuals_d, CL_TRUE, 0, Height * Width * sizeof(float), host_residuals, 0, NULL, NULL);
 
-    printf("FPGA CLEAN Deconvolution time: %0.3f ms \n", average_time * 1e-6);
+    printf("FPGA CLEAN Deconvolution time: %0.3f s \n", average_time * 1e-9);
 
     //printf("Cleaning done after %d iterations.\n", num);
 

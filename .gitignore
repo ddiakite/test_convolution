@@ -6,3 +6,4 @@ profile.mon
 profile.json
 cameraman_golden*
 conv2D.fpga
+CMakeLists.txt

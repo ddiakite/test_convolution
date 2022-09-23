@@ -11,6 +11,12 @@ set(ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src")
 
 #find_package(OpenCL REQUIRED)
 
+add_library(freeimage SHARED IMPORTED) # or STATIC instead of SHARED
+set_target_properties(freeimage PROPERTIES
+  IMPORTED_LOCATION "/home/diakite/FreeImage/libfreeimage.a"
+)
+
+
 
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/inc" "$ENV{INTELFPGAOCLSDKROOT}/host/include" "$ENV{INTELFPGAOCLSDKROOT}/examples_aoc/common/inc" "$ENV{INTELFPGAOCLSDKROOT}/examples_aoc/common/inc/AOCLUtils")
 
